@@ -7,6 +7,26 @@ app.use('/*', serveStatic({ root: './public' }));
 // データベースの準備
 const kv = await Deno.openKv();
 
+async function getNextId() {
+  // pokemonコレクション用のカウンタのキー
+  const key = ['counter', 'pokemon'];
+
+  // アトミック処理の中でカウンターに1を足す
+  const res = await kv.atomic().sum(key, 1n).commit();
+
+  // 確認
+  if (!res.ok) {
+    console.error('IDの生成に失敗しました。');
+    return null;
+  }
+
+  // カウンターをgetして…
+  const counter = await kv.get(key);
+
+  // Number型としてreturnする
+  return Number(counter.value);
+}
+
 /***  リソースの作成 ***/
 app.post('/api/pokemons', async (c) => {
   // リクエストボディを取得
