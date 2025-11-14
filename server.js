@@ -30,7 +30,20 @@ app.post('/api/pokemons', async (c) => {
 
 /*** リソースの取得（レコード単体） ***/
 app.get('/api/pokemons/:id', async (c) => {
-  return c.json({ path: c.req.path });
+  // パラメータの取得と検証
+  const id = Number(c.req.param('id'));
+  // リソース（レコード）の取得
+  const pkmn = await kv.get(['pokemons', id]);
+  // レコードがあったとき
+  if (pkmn.value) {
+    return c.json(pkmn.value);
+  }
+  // レコードがなかったとき
+  else {
+    c.status(404); // 404 Not Found
+    return c.json({ message: `IDが ${id} のポケモンはいませんでした。` });
+  }
+  // return c.json({ path: c.req.path });
 });
 
 /*** リソースの取得（コレクション） ***/
