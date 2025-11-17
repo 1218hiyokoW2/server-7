@@ -7,6 +7,7 @@ app.use('/*', serveStatic({ root: './public' }));
 // データベースの準備
 const kv = await Deno.openKv();
 
+/* 連番のIDを生成する関数 */
 async function getNextId() {
   // pokemonコレクション用のカウンタのキー
   const key = ['counter', 'pokemon'];
@@ -35,8 +36,12 @@ app.post('/api/pokemons', async (c) => {
 
   // IDと生成時刻を生成してレコードに追加
   const id = await getNextId();
-  record.id = id;
-  record.createdAt = new Date().toISOString();
+  if (!id) {
+    c.status(503); // 503 Service Unavailable
+    return c.json({ message: 'IDの生成に失敗しました。' });
+  }
+  record['id'] = id;
+  record['createdAt'] = new Date().toISOString();
 
   // リソースの作成
   await kv.set(['pokemons', id], record);
@@ -149,6 +154,25 @@ app.delete('/api/pokemons/:id', async (c) => {
 
 /*** リソースをすべて削除（練習用） ***/
 app.delete('/api/pokemons', async (c) => {
+  // 削除するコレクションを取得
+  const deleteList = await kv.list({ prefix: ['pokemons'] });
+
+  // レコードを一括で削除する
+  const atomic = kv.atomic();
+  for await (const entry of deleteList) atomic.delete(entry.key);
+  const res = await atomic.commit();
+
+  // 一括削除が成功
+  if (res.ok) {
+    await kv.delete(['counter', 'pokemons']); // 連番IDをリセット
+    c.status(204); // 204 No Content
+    return c.body(null);
+  }
+  // 失敗
+  else {
+    c.status(503); // 503 Service Unavailable
+    return c.json({ message: 'リソースの一括削除に失敗しました。' });
+  }
   // return c.json({ path: c.req.path });
 });
 
