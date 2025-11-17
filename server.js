@@ -120,12 +120,36 @@ app.put('/api/pokemons/:id', async (c) => {
 
 /*** リソースの削除 ***/
 app.delete('/api/pokemons/:id', async (c) => {
-  return c.json({ path: c.req.path });
+  // パラメーターの取得
+  const id = Number(c.req.param('id'));
+
+  // データベースにレコードがあるか確認
+  const pkmns = await kv.list({ prefix: ['pokemons'] });
+  let existed = false;
+  for await (const pkmn of pkmns) {
+    if (pkmn.value.id == id) {
+      existed = true;
+      break;
+    }
+  }
+
+  // レコードがある（削除）
+  if (existed) {
+    await kv.delete(['pokemons', id]);
+    c.status(204); // 204 No Content
+    return c.body(null);
+  }
+  // レコードがない
+  else {
+    c.status(404); // 404 Not Found
+    return c.json({ message: `IDが ${id} のポケモンはいませんでした。` });
+  }
+  // return c.json({ path: c.req.path });
 });
 
 /*** リソースをすべて削除（練習用） ***/
 app.delete('/api/pokemons', async (c) => {
-  return c.json({ path: c.req.path });
+  // return c.json({ path: c.req.path });
 });
 
 Deno.serve(app.fetch);
