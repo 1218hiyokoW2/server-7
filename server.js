@@ -91,6 +91,30 @@ app.put('/api/pokemons/:id', async (c) => {
     c.status(400); // 400 Bad Request
     return c.json({ message: '更新したいポケモンのIDを正しく指定してください。' });
   }
+  // データベースにレコードがあるか確認
+  const pkmns = await kv.list({ prefix: ['pokemons'] });
+  let existed = false;
+  for await (const pkmn of pkmns) {
+    if (pkmn.value.id == id) {
+      existed = true;
+      break;
+    }
+  }
+  // レコードがある（更新）
+  if (existed) {
+    // リクエストボディを取得
+    const body = await c.req.parseBody();
+    const record = JSON.parse(body['record']);
+    // リソースを更新（上書き）
+    await kv.set(['pokemons', id], record);
+    c.status(204); // 204 No Content
+    return c.body(null);
+  }
+  // レコードがない（何もしない）
+  else {
+    c.status(404); // 404 Not Found
+    return c.json({ message: `IDが ${id} のポケモンはいませんでした。` });
+  }
   // return c.json({ path: c.req.path });
 });
 
